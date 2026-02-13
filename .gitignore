@@ -1,0 +1,50 @@
+# --- JetBrains (GoLand, PyCharm, etc.) ---
+.idea/
+*.iml
+*.iws
+*.out
+cmake-build-*/
+
+# --- Go (Golang) ---
+bin/
+main
+app
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+vendor/
+
+*.test
+*.prof
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+
+venv/
+.venv/
+env/
+.env/
+build/
+dist/
+*.egg-info/
+
+*.env
+.env.*
+!.env.example
+
+config/secrets.yaml
+
+# --- Docker ---
+pgdata/
+mysql_data/
+redis_data/
+
+# --- Системные файлы ---
+.DS_Store
+Thumbs.db
+*.db
