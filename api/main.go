@@ -2,7 +2,7 @@ package main
 
 import (
 	"BankTransactions/internal/config"
-	"fmt"
+	"BankTransactions/internal/storage/sqlite"
 	"log"
 	"log/slog"
 	"os"
@@ -16,11 +16,11 @@ const (
 func main() {
 	cfg := config.MustLoadConfig()
 
-	fmt.Println(cfg)
-
 	log := mustSetupLogger(cfg.Env)
 
-	// init db
+	rep := sqlite.MustNew(log, cfg)
+
+	_ = rep
 
 	// init router
 
