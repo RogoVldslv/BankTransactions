@@ -3,6 +3,14 @@ package main
 import (
 	"BankTransactions/internal/config"
 	"fmt"
+	"log"
+	"log/slog"
+	"os"
+)
+
+const (
+	localEnv = "local"
+	prodEnv  = "prod"
 )
 
 func main() {
@@ -10,7 +18,7 @@ func main() {
 
 	fmt.Println(cfg)
 
-	// init log
+	log := mustSetupLogger(cfg.Env)
 
 	// init db
 
@@ -19,4 +27,26 @@ func main() {
 	// handlers
 
 	// run server
+}
+
+func mustSetupLogger(env string) *slog.Logger {
+	var logger *slog.Logger
+	switch env {
+	case prodEnv:
+		logger = slog.New(slog.NewJSONHandler(
+			os.Stdout,
+			&slog.HandlerOptions{Level: slog.LevelInfo},
+		),
+		)
+	case localEnv:
+		logger = slog.New(slog.NewTextHandler(
+			os.Stdout,
+			&slog.HandlerOptions{Level: slog.LevelDebug},
+		),
+		)
+	default:
+		log.Fatal("env must be local or prod")
+	}
+
+	return logger
 }
