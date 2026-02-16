@@ -1,7 +1,14 @@
 package main
 
+import (
+	"BankTransactions/internal/config"
+	"fmt"
+)
+
 func main() {
-	// init cfg
+	cfg := config.MustLoadConfig()
+
+	fmt.Println(cfg)
 
 	// init log
 

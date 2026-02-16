@@ -3,6 +3,9 @@ services:
     build:
       context: api
       dockerfile: api.Dockerfile
+    volumes:
+      - ./api:/app
+    command: go run main.go
     ports:
       - "8888:8080"
     env_file:
