@@ -3,7 +3,10 @@ package sqlite
 import (
 	"BankTransactions/internal/config"
 	"BankTransactions/internal/lib/sl"
-	"BankTransactions/internal/storage/models"
+	"BankTransactions/internal/logger"
+	"BankTransactions/internal/models"
+	"BankTransactions/internal/storage"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -12,14 +15,14 @@ import (
 	"gorm.io/gorm"
 )
 
-type Repository struct {
+type Storage struct {
 	DB *gorm.DB
 }
 
-func (s *Repository) GetBalance(accountId int) (int, error) {
+func (r *Storage) GetBalance(accountId *int) (int, error) {
 	const op = "storage.sqlite.GetBalance"
 	var balance int
-	err := s.DB.Model(&models.Account{}).Where("id = ?", accountId).
+	err := r.DB.Model(&models.Account{}).Where("id = ?", accountId).
 		Pluck("balance", &balance).Error
 	if err != nil {
 		return 0, fmt.Errorf("%s: %w", op, err)
@@ -27,22 +30,38 @@ func (s *Repository) GetBalance(accountId int) (int, error) {
 	return balance, nil
 }
 
-func MustNew(log *slog.Logger, cfg *config.Config) *Repository {
+func (r *Storage) SaveAccount(a *models.Account) error {
+	const op = "storage.sqlite.SaveAccount"
+	var exiting models.Account
+	err := r.DB.Where("passport_id = ?", a.PassportId).First(&exiting).Error
+	if err == nil {
+		return storage.UserUniqueError
+	}
+
+	if !(errors.Is(err, gorm.ErrRecordNotFound)) {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+	if err = r.DB.Create(a).Error; err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+	return nil
+}
+
+func MustNew(log logger.Logger, cfg *config.Config) *Storage {
 	const op = "storage.sqlite.New"
-	log = log.With(slog.String("op", op))
 
 	db, err := gorm.Open(sqlite.Open(cfg.StoragePath), &gorm.Config{})
 	if err != nil {
-		log.Error("failed to connect with database", sl.Err(err))
+		log.Error("failed to connect with database", sl.Err(err), slog.String("op", op))
 		os.Exit(1)
 	}
 
 	err = db.AutoMigrate(models.AllModels()...)
 	if err != nil {
-		log.Error("failed to migrate", sl.Err(err))
+		log.Error("failed to migrate", sl.Err(err), slog.String("op", op))
 		os.Exit(1)
 	}
 
-	return &Repository{DB: db}
+	return &Storage{DB: db}
 
 }

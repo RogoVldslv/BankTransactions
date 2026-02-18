@@ -2,10 +2,16 @@ package main
 
 import (
 	"BankTransactions/internal/config"
+	"BankTransactions/internal/http_server/handlers"
+	"BankTransactions/internal/logger"
+	"BankTransactions/internal/storage"
 	"BankTransactions/internal/storage/sqlite"
+	"fmt"
 	"log"
 	"log/slog"
 	"os"
+
+	"github.com/gin-gonic/gin"
 )
 
 const (
@@ -16,17 +22,20 @@ const (
 func main() {
 	cfg := config.MustLoadConfig()
 
-	log := mustSetupLogger(cfg.Env)
+	var log logger.Logger = mustSetupLogger(cfg.Env)
 
-	rep := sqlite.MustNew(log, cfg)
+	var stg storage.Storage = sqlite.MustNew(log, cfg)
 
-	_ = rep
+	r := gin.Default()
 
-	// init router
+	r.POST("/account", handlers.CreatePostAccount(log, stg))
 
-	// handlers
+	log.Info("server is starting")
+	if err := r.Run(cfg.Address); err != nil {
+		log.Error(fmt.Sprintf("failed to start server on address: %s", cfg.Address))
+		os.Exit(1)
+	}
 
-	// run server
 }
 
 func mustSetupLogger(env string) *slog.Logger {
