@@ -19,10 +19,10 @@ type Storage struct {
 	DB *gorm.DB
 }
 
-func (r *Storage) GetBalance(accountId *int) (int, error) {
+func (r *Storage) GetBalance(id int) (int, error) {
 	const op = "storage.sqlite.GetBalance"
 	var balance int
-	err := r.DB.Model(&models.Account{}).Where("id = ?", accountId).
+	err := r.DB.Model(&models.Account{}).Where("id = ?", id).
 		Pluck("balance", &balance).Error
 	if err != nil {
 		return 0, fmt.Errorf("%s: %w", op, err)
@@ -32,7 +32,7 @@ func (r *Storage) GetBalance(accountId *int) (int, error) {
 
 func (r *Storage) SaveAccount(a *models.Account) error {
 	const op = "storage.sqlite.SaveAccount"
-	var exiting models.Account
+	var exiting models.Account // Вынести логику в service
 	err := r.DB.Where("passport_id = ?", a.PassportId).First(&exiting).Error
 	if err == nil {
 		return storage.UserUniqueError
@@ -42,6 +42,14 @@ func (r *Storage) SaveAccount(a *models.Account) error {
 		return fmt.Errorf("%s: %w", op, err)
 	}
 	if err = r.DB.Create(a).Error; err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+	return nil
+}
+
+func (r *Storage) SaveTransaction(t *models.Transaction) error {
+	const op = "storage.sqlite.SaveTransaction"
+	if err := r.DB.Create(t).Error; err != nil {
 		return fmt.Errorf("%s: %w", op, err)
 	}
 	return nil

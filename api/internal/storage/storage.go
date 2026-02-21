@@ -10,6 +10,7 @@ var (
 )
 
 type Storage interface {
-	GetBalance(accountId *int) (int, error)
+	GetBalance(id int) (int, error)
 	SaveAccount(a *models.Account) error
+	SaveTransaction(t *models.Transaction) error
 }

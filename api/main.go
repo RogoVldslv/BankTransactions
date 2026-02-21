@@ -30,6 +30,7 @@ func main() {
 
 	r.POST("/account", handlers.CreatePostAccount(log, stg))
 
+	r.POST("/transaction", handlers.CreatePostTransaction(log, stg))
 	log.Info("server is starting")
 	if err := r.Run(cfg.Address); err != nil {
 		log.Error(fmt.Sprintf("failed to start server on address: %s", cfg.Address))
@@ -56,6 +57,5 @@ func mustSetupLogger(env string) *slog.Logger {
 	default:
 		log.Fatal("env must be local or prod")
 	}
-
 	return logger
 }

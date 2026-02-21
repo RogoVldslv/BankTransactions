@@ -8,7 +8,7 @@ type Transaction struct {
 	gorm.Model
 	FromUserId int    `gorm:"not null;index" json:"from_id" binding:"required"`
 	ToUserId   int    `gorm:"not null;index" json:"to_id" binding:"required"`
-	Amount     int64  `gorm:"not null" json:"amount" binding:"required;gte=0"`
+	Amount     int64  `gorm:"not null" json:"amount" binding:"required,gte=0"`
 	Message    string `gorm:"nullable;type:varchar(64)" json:"message" binding:"max=32"`
 }
 
