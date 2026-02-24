@@ -36,7 +36,7 @@ func CreatePostAccount(log logger.Logger, stg storage.Storage) gin.HandlerFunc {
 		}
 
 		if err := service.CreateAccount(&account); err != nil {
-			if errors.Is(err, domain.UserUniqueError) {
+			if errors.Is(err, domain.ErrAccountUnique) {
 				log.Info("user with the same passport id already exists")
 				c.JSON(http.StatusBadRequest, resp.Error("user with the same passport id already exists"))
 				return

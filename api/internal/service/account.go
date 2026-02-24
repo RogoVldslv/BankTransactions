@@ -10,7 +10,7 @@ import (
 type AccountSaver interface {
 	SaveAccount(a *models.Account) error
 	GetBalance(id int) (int, error)
-	IsAccountExists(passport int) (bool, error)
+	AccountExistsWithPassport(passport int) (bool, error)
 }
 
 type AccountService struct {
@@ -28,13 +28,13 @@ func NewAccountService(log logger.Logger, stg AccountSaver) *AccountService {
 func (s *AccountService) CreateAccount(a *models.Account) error {
 	const op = "service.CreateAccount"
 
-	exist, err := s.storage.IsAccountExists(a.PassportId)
+	exist, err := s.storage.AccountExistsWithPassport(a.PassportId)
 
 	if err != nil {
 		return fmt.Errorf("%s:%w", op, err)
 	}
 	if exist == true {
-		return domain.UserUniqueError
+		return domain.ErrAccountUnique
 	}
 
 	if err = s.storage.SaveAccount(a); err != nil {

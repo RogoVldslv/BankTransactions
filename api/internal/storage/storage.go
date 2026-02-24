@@ -2,11 +2,18 @@ package storage
 
 import (
 	"BankTransactions/internal/models"
+
+	"gorm.io/gorm"
 )
 
 type Storage interface {
-	GetBalance(id int) (int, error)
-	SaveAccount(a *models.Account) error
-	SaveTransaction(t *models.Transaction) error
-	IsAccountExists(passport int) (bool, error)
+	GetBalance(int) (int, error)
+	SaveAccount(*models.Account) error
+	SaveTransaction(*models.Transaction) error
+	AccountExistsWithPassport(int) (bool, error)
+	CanAfford(int, int64) (bool, error)
+	AccountExistsWithId(int) (bool, error)
+	IncrementBalance(int, int64) error
+	DecrementBalance(int, int64) error
+	GetDB() *gorm.DB
 }

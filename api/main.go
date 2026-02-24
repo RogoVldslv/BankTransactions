@@ -30,7 +30,13 @@ func main() {
 
 	r.POST("/account", handlers.CreatePostAccount(log, stg))
 
-	r.POST("/transaction", handlers.CreatePostTransaction(log, stg))
+	r.POST("/transaction", func(c *gin.Context) {
+		if c.Query("manual") == "true" {
+			handlers.CreatePostManualTransaction(log, stg)(c)
+			return
+		}
+		handlers.TransferMoney(log, stg)(c)
+	})
 	log.Info("server is starting")
 	if err := r.Run(cfg.Address); err != nil {
 		log.Error(fmt.Sprintf("failed to start server on address: %s", cfg.Address))

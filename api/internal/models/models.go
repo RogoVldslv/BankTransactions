@@ -15,7 +15,7 @@ type Transaction struct {
 type Account struct {
 	gorm.Model
 	Name       string `gorm:"not null" json:"name" binding:"required"`
-	Balance    int    `gorm:"not null; default:0" json:"balance"`
+	Balance    int64  `gorm:"not null; default:0" json:"balance"`
 	PassportId int    `gorm:"not null" json:"passport_id" binding:"required,min=10000000,max=99999999" `
 }
 
