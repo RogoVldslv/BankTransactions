@@ -1,10 +1,12 @@
 package handlers
 
 import (
+	"BankTransactions/internal/domain"
 	resp "BankTransactions/internal/lib/responses"
 	"BankTransactions/internal/lib/sl"
 	"BankTransactions/internal/logger"
 	"BankTransactions/internal/models"
+	service2 "BankTransactions/internal/service"
 	"BankTransactions/internal/storage"
 	"errors"
 	"fmt"
@@ -17,6 +19,7 @@ import (
 func CreatePostAccount(log logger.Logger, stg storage.Storage) gin.HandlerFunc {
 	const op = "handler.PostAccount"
 	log = log.With("op", op)
+	service := service2.NewAccountService(log, stg)
 	return func(c *gin.Context) {
 		var account models.Account
 		if err := c.ShouldBindJSON(&account); err != nil {
@@ -31,8 +34,9 @@ func CreatePostAccount(log logger.Logger, stg storage.Storage) gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, resp.Error("bad data"))
 			return
 		}
-		if err := stg.SaveAccount(&account); err != nil {
-			if errors.Is(err, storage.UserUniqueError) {
+
+		if err := service.CreateAccount(&account); err != nil {
+			if errors.Is(err, domain.UserUniqueError) {
 				log.Info("user with the same passport id already exists")
 				c.JSON(http.StatusBadRequest, resp.Error("user with the same passport id already exists"))
 				return

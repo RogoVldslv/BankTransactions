@@ -5,11 +5,15 @@ import (
 	"BankTransactions/internal/lib/sl"
 	"BankTransactions/internal/logger"
 	"BankTransactions/internal/models"
-	"BankTransactions/internal/storage"
 	"errors"
 	"fmt"
 	"log/slog"
 	"os"
+	"time"
+
+	stdlog "log"
+
+	logo "gorm.io/gorm/logger"
 
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -32,16 +36,7 @@ func (r *Storage) GetBalance(id int) (int, error) {
 
 func (r *Storage) SaveAccount(a *models.Account) error {
 	const op = "storage.sqlite.SaveAccount"
-	var exiting models.Account // Вынести логику в service
-	err := r.DB.Where("passport_id = ?", a.PassportId).First(&exiting).Error
-	if err == nil {
-		return storage.UserUniqueError
-	}
-
-	if !(errors.Is(err, gorm.ErrRecordNotFound)) {
-		return fmt.Errorf("%s: %w", op, err)
-	}
-	if err = r.DB.Create(a).Error; err != nil {
+	if err := r.DB.Create(a).Error; err != nil {
 		return fmt.Errorf("%s: %w", op, err)
 	}
 	return nil
@@ -55,10 +50,34 @@ func (r *Storage) SaveTransaction(t *models.Transaction) error {
 	return nil
 }
 
+func (r *Storage) IsAccountExists(passport int) (bool, error) {
+	const op = "storage.sqlite.IsAccountExists"
+	var exiting models.Account
+	err := r.DB.Where("passport_id = ?", passport).First(&exiting).Error
+
+	if err == nil {
+		return true, nil
+	}
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return false, nil
+	}
+	return false, fmt.Errorf("%s: %w", op, err)
+}
+
 func MustNew(log logger.Logger, cfg *config.Config) *Storage {
 	const op = "storage.sqlite.New"
 
-	db, err := gorm.Open(sqlite.Open(cfg.StoragePath), &gorm.Config{})
+	newLogger := logo.New(
+		stdlog.New(os.Stdout, "\r\n", stdlog.LstdFlags), // стандартный вывод
+		logo.Config{
+			SlowThreshold:             time.Second, // Логировать только запросы дольше 1 сек
+			LogLevel:                  logo.Info,   // ИЛИ logger.Error, чтобы не видеть "record not found"
+			IgnoreRecordNotFoundError: true,
+			Colorful:                  true,
+		},
+	)
+
+	db, err := gorm.Open(sqlite.Open(cfg.StoragePath), &gorm.Config{Logger: newLogger})
 	if err != nil {
 		log.Error("failed to connect with database", sl.Err(err), slog.String("op", op))
 		os.Exit(1)
