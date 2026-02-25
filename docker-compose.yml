@@ -8,5 +8,18 @@ services:
     command: go run main.go
     ports:
       - "8888:8080"
-    env_file:
-      - ./api/.env
+    environment:
+      - CONFIG_PATH=./config/local.yaml
+      - REDIS_ADDR=redis:6379
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+volumes:
+  redis_data:

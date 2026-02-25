@@ -2,10 +2,13 @@ package service
 
 import (
 	"BankTransactions/internal/domain"
+	redisutils "BankTransactions/internal/lib/redis"
 	"BankTransactions/internal/logger"
 	"BankTransactions/internal/models"
+	"context"
 	"fmt"
 
+	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 )
 
@@ -21,16 +24,29 @@ type TransactionStorage interface {
 type TransactionService struct {
 	storage TransactionStorage
 	log     logger.Logger
+	rClient *redis.Client
+}
+type TransactionManualService struct {
+	storage TransactionStorage
+	log     logger.Logger
+	rClient *redis.Client
 }
 
-func NewTransactionService(log logger.Logger, stg TransactionStorage) *TransactionService {
+func NewTransactionService(log logger.Logger, stg TransactionStorage, rClient *redis.Client) *TransactionService {
 	return &TransactionService{
+		storage: stg,
+		log:     log,
+		rClient: rClient,
+	}
+}
+func NewTransactionManualService(log logger.Logger, stg TransactionStorage) *TransactionManualService {
+	return &TransactionManualService{
 		storage: stg,
 		log:     log,
 	}
 }
 
-func (s *TransactionService) ManualSaveTransaction(t *models.Transaction) error {
+func (s *TransactionManualService) ManualSaveTransaction(t *models.Transaction) error {
 	const op = "service.ManualSaveTransaction"
 	err := s.storage.SaveTransaction(t)
 	if err != nil {
@@ -39,7 +55,7 @@ func (s *TransactionService) ManualSaveTransaction(t *models.Transaction) error 
 	return nil
 }
 
-func (s *TransactionService) TransferMoney(t *models.Transaction) error {
+func (s *TransactionService) TransferMoney(ctx context.Context, t *models.Transaction) error {
 	const op = "service.TransferMoney"
 
 	return s.storage.GetDB().Transaction(func(tx *gorm.DB) error {
@@ -80,6 +96,10 @@ func (s *TransactionService) TransferMoney(t *models.Transaction) error {
 			return fmt.Errorf("%s:%w", op, err)
 		}
 
+		if err = redisutils.LPushTransfer(ctx, s.rClient, t); err != nil {
+			return fmt.Errorf("%s:%w", op, err)
+		}
+		s.log.Debug("redis pushed")
 		return nil
 	})
 
