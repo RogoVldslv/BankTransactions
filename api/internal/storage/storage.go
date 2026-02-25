@@ -16,4 +16,5 @@ type Storage interface {
 	IncrementBalance(int, int64) error
 	DecrementBalance(int, int64) error
 	GetDB() *gorm.DB
+	GetTgId(accountId int) (int64, error)
 }

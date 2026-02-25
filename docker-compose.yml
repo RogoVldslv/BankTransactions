@@ -11,6 +11,20 @@ services:
     environment:
       - CONFIG_PATH=./config/local.yaml
       - REDIS_ADDR=redis:6379
+      - REDIS_QUEUE_NAME=tg_transfer
+    depends_on:
+      - redis
+  bot:
+    build:
+      context: ./bot
+      dockerfile: bot.Dockerfile
+    restart: always
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_URL=redis://redis:6379/0
+      - REDIS_QUEUE_NAME=tg_transfer
+      - BOT_TOKEN=${BOT_TOKEN}
     depends_on:
       - redis
 

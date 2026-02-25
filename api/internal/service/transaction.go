@@ -19,6 +19,7 @@ type TransactionStorage interface {
 	GetDB() *gorm.DB
 	IncrementBalance(accountId int, amount int64) error
 	DecrementBalance(accountId int, amount int64) error
+	GetTgId(accountId int) (int64, error)
 }
 
 type TransactionService struct {
@@ -96,7 +97,9 @@ func (s *TransactionService) TransferMoney(ctx context.Context, t *models.Transa
 			return fmt.Errorf("%s:%w", op, err)
 		}
 
-		if err = redisutils.LPushTransfer(ctx, s.rClient, t); err != nil {
+		tgId, err := s.storage.GetTgId(t.FromUserId)
+
+		if err = redisutils.LPushTransfer(ctx, s.rClient, t, tgId); err != nil {
 			return fmt.Errorf("%s:%w", op, err)
 		}
 		s.log.Debug("redis pushed")

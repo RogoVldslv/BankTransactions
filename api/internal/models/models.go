@@ -16,7 +16,8 @@ type Account struct {
 	gorm.Model
 	Name       string `gorm:"not null" json:"name" binding:"required"`
 	Balance    int64  `gorm:"not null; default:0" json:"balance"`
-	PassportId int    `gorm:"not null" json:"passport_id" binding:"required,min=10000000,max=99999999" `
+	PassportId int    `gorm:"not null" json:"passport_id" binding:"required,min=10000000,max=99999999"`
+	TelegramID int64  `gorm:"not null;index;column:tg_id" json:"tg_id" binding:"required" `
 }
 
 func AllModels() []any {
