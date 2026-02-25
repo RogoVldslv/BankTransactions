@@ -92,19 +92,39 @@ func (s *Storage) AccountExistsWithId(accountId int) (bool, error) {
 }
 
 func (s *Storage) IncrementBalance(accountId int, amount int64) error {
+	const op = "storage.sqlite.IncrementBalance"
 	err := s.DB.Model(&models.Account{}).Where("id = ?", accountId).
 		Update("balance",
 			gorm.Expr("balance + ?", amount),
 		).Error
-	return err
+	if err != nil {
+		return fmt.Errorf("%s:%w", op, err)
+	}
+	return nil
 }
 
 func (s *Storage) DecrementBalance(accountId int, amount int64) error {
+	const op = "storage.sqlite.DecrementBalance"
 	err := s.DB.Model(&models.Account{}).Where("id = ?", accountId).
 		Update("balance",
 			gorm.Expr("balance - ?", amount),
 		).Error
-	return err
+	if err != nil {
+		return fmt.Errorf("%s:%w", op, err)
+	}
+	return nil
+}
+
+func (s *Storage) GetTgId(accountId int) (int64, error) {
+	const op = "storage.sqlite.GetTgId"
+	var tgId int64
+
+	err := s.DB.Model(models.Account{}).Where("id = ?", accountId).Pluck("tg_id", &tgId).Error
+	if err != nil {
+		return 0, fmt.Errorf("%s:%w", op, err)
+	}
+	return tgId, nil
+
 }
 
 func MustNew(log logger.Logger, cfg *config.Config) *Storage {
