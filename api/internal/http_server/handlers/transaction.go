@@ -13,12 +13,13 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
+	"github.com/redis/go-redis/v9"
 )
 
 func CreatePostManualTransaction(log logger.Logger, stg storage.Storage) gin.HandlerFunc {
 	const op = "handlers.ManualPostTransaction"
 	log = log.With("op", op)
-	service := servicePackage.NewTransactionService(log, stg)
+	service := servicePackage.NewTransactionManualService(log, stg)
 	return func(c *gin.Context) {
 		var t models.Transaction
 		if err := c.ShouldBindJSON(&t); err != nil {
@@ -45,10 +46,10 @@ func CreatePostManualTransaction(log logger.Logger, stg storage.Storage) gin.Han
 	}
 }
 
-func TransferMoney(log logger.Logger, stg storage.Storage) gin.HandlerFunc {
+func TransferMoney(log logger.Logger, stg storage.Storage, rClient *redis.Client) gin.HandlerFunc {
 	const op = "handlers.TransferMoney"
 	log = log.With("op", op)
-	service := servicePackage.NewTransactionService(log, stg)
+	service := servicePackage.NewTransactionService(log, stg, rClient)
 	return func(c *gin.Context) {
 		var t models.Transaction
 		if err := c.ShouldBindJSON(&t); err != nil {
@@ -63,7 +64,7 @@ func TransferMoney(log logger.Logger, stg storage.Storage) gin.HandlerFunc {
 			return
 		}
 
-		if err := service.TransferMoney(&t); err != nil {
+		if err := service.TransferMoney(c, &t); err != nil {
 			if errors.Is(err, domain.ErrToAccountNotFind) {
 				log.Info("to account not find", sl.Err(err))
 				c.JSON(http.StatusNotFound, resp.Error("account to not found"))

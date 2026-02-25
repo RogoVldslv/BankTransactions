@@ -3,6 +3,7 @@ package main
 import (
 	"BankTransactions/internal/config"
 	"BankTransactions/internal/http_server/handlers"
+	redisutils "BankTransactions/internal/lib/redis"
 	"BankTransactions/internal/logger"
 	"BankTransactions/internal/storage"
 	"BankTransactions/internal/storage/sqlite"
@@ -26,6 +27,8 @@ func main() {
 
 	var stg storage.Storage = sqlite.MustNew(log, cfg)
 
+	rdb := redisutils.NewRedisClient(cfg.RedisAddress)
+
 	r := gin.Default()
 
 	r.POST("/account", handlers.CreatePostAccount(log, stg))
@@ -35,7 +38,7 @@ func main() {
 			handlers.CreatePostManualTransaction(log, stg)(c)
 			return
 		}
-		handlers.TransferMoney(log, stg)(c)
+		handlers.TransferMoney(log, stg, rdb)(c)
 	})
 	log.Info("server is starting")
 	if err := r.Run(cfg.Address); err != nil {
