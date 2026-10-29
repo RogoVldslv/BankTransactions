@@ -7,7 +7,6 @@ API для создания счетов и переводов между ним
 Нужны Docker и Docker Compose. Для бота получи токен через [BotFather](https://t.me/BotFather) и задай его в .env в корне проекта, затем из корня проекта запусти:
 
 ```sh
-export BOT_TOKEN='токен_бота'
 docker compose up --build -d
 ```
 
