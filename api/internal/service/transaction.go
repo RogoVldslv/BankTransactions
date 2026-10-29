@@ -6,28 +6,25 @@ import (
 	"BankTransactions/internal/logger"
 	"BankTransactions/internal/models"
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/redis/go-redis/v9"
-	"gorm.io/gorm"
 )
 
-type TransactionStorage interface {
+type TransferRepository interface {
+	AccountExistsWithId(accountID int) (bool, error)
 	SaveTransaction(t *models.Transaction) error
-	AccountExistsWithId(accountId int) (bool, error)
-	CanAfford(accountId int, amount int64) (bool, error)
-	GetDB() *gorm.DB
-	IncrementBalance(accountId int, amount int64) error
-	DecrementBalance(accountId int, amount int64) error
-	GetTgId(accountId int) (int64, error)
+	IncrementBalance(accountID int, amount int64) error
+	Debit(accountId int, amount int64) error
+}
+
+type TransactionStorage interface {
+	WithinTransaction(fn func(repo TransferRepository) error) error
+	GetTgId(accountID int) (int64, error)
 }
 
 type TransactionService struct {
-	storage TransactionStorage
-	log     logger.Logger
-	rClient *redis.Client
-}
-type TransactionManualService struct {
 	storage TransactionStorage
 	log     logger.Logger
 	rClient *redis.Client
@@ -40,27 +37,12 @@ func NewTransactionService(log logger.Logger, stg TransactionStorage, rClient *r
 		rClient: rClient,
 	}
 }
-func NewTransactionManualService(log logger.Logger, stg TransactionStorage) *TransactionManualService {
-	return &TransactionManualService{
-		storage: stg,
-		log:     log,
-	}
-}
-
-func (s *TransactionManualService) ManualSaveTransaction(t *models.Transaction) error {
-	const op = "service.ManualSaveTransaction"
-	err := s.storage.SaveTransaction(t)
-	if err != nil {
-		return fmt.Errorf("%s: %w", op, err)
-	}
-	return nil
-}
 
 func (s *TransactionService) TransferMoney(ctx context.Context, t *models.Transaction) error {
 	const op = "service.TransferMoney"
 
-	return s.storage.GetDB().Transaction(func(tx *gorm.DB) error {
-		exists, err := s.storage.AccountExistsWithId(t.FromUserId)
+	err := s.storage.WithinTransaction(func(repo TransferRepository) error {
+		exists, err := repo.AccountExistsWithId(t.FromUserId)
 		if err != nil {
 			return fmt.Errorf("%s:%w", op, err)
 		}
@@ -68,7 +50,7 @@ func (s *TransactionService) TransferMoney(ctx context.Context, t *models.Transa
 			return fmt.Errorf("%s:%w", op, domain.ErrFromAccountNotFind)
 		}
 
-		exists, err = s.storage.AccountExistsWithId(t.ToUserId)
+		exists, err = repo.AccountExistsWithId(t.ToUserId)
 		if err != nil {
 			return fmt.Errorf("%s:%w", op, err)
 		}
@@ -76,34 +58,43 @@ func (s *TransactionService) TransferMoney(ctx context.Context, t *models.Transa
 			return fmt.Errorf("%s:%w", op, domain.ErrToAccountNotFind)
 		}
 
-		canAfford, err := s.storage.CanAfford(t.FromUserId, t.Amount)
+		err = repo.Debit(t.FromUserId, t.Amount)
 
 		if err != nil {
 			return fmt.Errorf("%s:%w", op, err)
 		}
-		if !canAfford {
-			return fmt.Errorf("%s:%w", op, domain.ErrInsufficientFunds)
-		}
 
-		if err = s.storage.SaveTransaction(t); err != nil {
+		if err = repo.SaveTransaction(t); err != nil {
 			return fmt.Errorf("%s:%w", op, err)
 		}
 
-		if err = s.storage.DecrementBalance(t.FromUserId, t.Amount); err != nil {
+		if err = repo.IncrementBalance(t.ToUserId, t.Amount); err != nil {
 			return fmt.Errorf("%s:%w", op, err)
 		}
 
-		if err = s.storage.IncrementBalance(t.ToUserId, t.Amount); err != nil {
-			return fmt.Errorf("%s:%w", op, err)
-		}
-
-		tgId, err := s.storage.GetTgId(t.FromUserId)
-
-		if err = redisutils.LPushTransfer(ctx, s.rClient, t, tgId); err != nil {
-			return fmt.Errorf("%s:%w", op, err)
-		}
-		s.log.Debug("redis pushed")
 		return nil
 	})
 
+	if err != nil {
+		return fmt.Errorf("%s:%w", op, err)
+	}
+
+	var tgID int64
+
+	tgID, err = s.storage.GetTgId(t.ToUserId)
+	if errors.Is(err, domain.ErrTelegramIDNotFound) {
+		s.log.Debug("tg id no found, failed to push notification")
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	if err = redisutils.LPushTransfer(ctx, s.rClient, t, tgID); err != nil {
+		s.log.Error("failed to push transfer notification", "error", err)
+	} else {
+		s.log.Debug("notification has been sent")
+	}
+
+	return nil
 }

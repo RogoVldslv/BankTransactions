@@ -2,9 +2,11 @@ package sqlite
 
 import (
 	"BankTransactions/internal/config"
+	"BankTransactions/internal/domain"
 	"BankTransactions/internal/lib/sl"
 	"BankTransactions/internal/logger"
 	"BankTransactions/internal/models"
+	"BankTransactions/internal/service"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -115,6 +117,22 @@ func (s *Storage) DecrementBalance(accountId int, amount int64) error {
 	return nil
 }
 
+func (s *Storage) Debit(accountId int, amount int64) error {
+	const op = "storage.sqlite.Debit"
+	iSufficientFunds, err := s.CanAfford(accountId, amount)
+	if err != nil {
+		return fmt.Errorf("%s:%w", op, err)
+	}
+	if iSufficientFunds == false {
+		return fmt.Errorf("%s:%w", op, domain.ErrInsufficientFunds)
+	}
+	err = s.DecrementBalance(accountId, amount)
+	if err != nil {
+		return fmt.Errorf("%s:%w", op, err)
+	}
+	return nil
+}
+
 func (s *Storage) GetTgId(accountId int) (int64, error) {
 	const op = "storage.sqlite.GetTgId"
 	var tgId int64
@@ -125,6 +143,15 @@ func (s *Storage) GetTgId(accountId int) (int64, error) {
 	}
 	return tgId, nil
 
+}
+
+func (s *Storage) WithinTransaction(
+	fn func(repo service.TransferRepository) error,
+) error {
+	return s.DB.Transaction(func(tx *gorm.DB) error {
+		txStorage := &Storage{DB: tx}
+		return fn(txStorage)
+	})
 }
 
 func MustNew(log logger.Logger, cfg *config.Config) *Storage {
